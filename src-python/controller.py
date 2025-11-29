@@ -280,44 +280,54 @@ class Controller:
             elif config.ENABLE_TRANSLATION is False:
                 pass
             else:
-                try:
-                    translation, success = model.getInputTranslate(message, source_language=language)
-                    if all(success) is not True:
-                        self.changeToCTranslate2Process()
-                        self.run(
-                            400,
-                            self.run_mapping["error_translation_engine"],
-                            {
-                                "message":"Translation engine limit error",
-                                "data": None
-                            },
-                        )
-                except Exception as e:
-                    # VRAM不足エラーの検出
-                    is_vram_error, error_message = model.detectVRAMError(e)
-                    if is_vram_error:
-                        self.run(
-                            400,
-                            self.run_mapping["error_translation_mic_vram_overflow"],
-                            {
-                                "message":"VRAM out of memory during translation of mic",
-                                "data": error_message
-                            },
-                        )
-                        # 翻訳機能をOFFにする
-                        self.setDisableTranslation()
-                        self.run(
-                            400,
-                            self.run_mapping["enable_translation"],
-                            {
-                                "message":"Translation disabled due to VRAM overflow",
-                                "data": False
-                            },
-                        )
-                        return
-                    else:
-                        # その他のエラーは通常通り処理
-                        raise
+                # Check if using Aliyun LiveTranslate (which provides end-to-end translation)
+                translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
+                if translator_name == "Aliyun_LiveTranslate":
+                    # Aliyun already provides translation, use message directly as translation
+                    # The message from Aliyun is already translated text
+                    target_languages = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]
+                    translation = [message if data["enable"] is True else "" 
+                                 for data in target_languages.values()]
+                else:
+                    # Use traditional translation pipeline
+                    try:
+                        translation, success = model.getInputTranslate(message, source_language=language)
+                        if all(success) is not True:
+                            self.changeToCTranslate2Process()
+                            self.run(
+                                400,
+                                self.run_mapping["error_translation_engine"],
+                                {
+                                    "message":"Translation engine limit error",
+                                    "data": None
+                                },
+                            )
+                    except Exception as e:
+                        # VRAM不足エラーの検出
+                        is_vram_error, error_message = model.detectVRAMError(e)
+                        if is_vram_error:
+                            self.run(
+                                400,
+                                self.run_mapping["error_translation_mic_vram_overflow"],
+                                {
+                                    "message":"VRAM out of memory during translation of mic",
+                                    "data": error_message
+                                },
+                            )
+                            # 翻訳機能をOFFにする
+                            self.setDisableTranslation()
+                            self.run(
+                                400,
+                                self.run_mapping["enable_translation"],
+                                {
+                                    "message":"Translation disabled due to VRAM overflow",
+                                    "data": False
+                                },
+                            )
+                            return
+                        else:
+                            # その他のエラーは通常通り処理
+                            raise
 
             if config.CONVERT_MESSAGE_TO_HIRAGANA is True or config.CONVERT_MESSAGE_TO_ROMAJI is True:
                 if config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]["1"]["language"] == "Japanese":
@@ -440,44 +450,52 @@ class Controller:
             elif config.ENABLE_TRANSLATION is False:
                 pass
             else:
-                try:
-                    translation, success = model.getOutputTranslate(message, source_language=language)
-                    if all(success) is not True:
-                        self.changeToCTranslate2Process()
-                        self.run(
-                            400,
-                            self.run_mapping["error_translation_engine"],
-                            {
-                                "message":"Translation engine limit error",
-                                "data": None
-                            },
-                        )
-                except Exception as e:
-                    # VRAM不足エラーの検出
-                    is_vram_error, error_message = model.detectVRAMError(e)
-                    if is_vram_error:
-                        self.run(
-                            400,
-                            self.run_mapping["error_translation_speaker_vram_overflow"],
-                            {
-                                "message":"VRAM out of memory during translation of speaker",
-                                "data": error_message
-                            },
-                        )
-                        # 翻訳機能をOFFにする
-                        self.setDisableTranslation()
-                        self.run(
-                            400,
-                            self.run_mapping["enable_translation"],
-                            {
-                                "message":"Translation disabled due to VRAM overflow",
-                                "data": False
-                            },
-                        )
-                        return
-                    else:
-                        # その他のエラーは通常通り処理
-                        raise
+                # Check if using Aliyun LiveTranslate (which provides end-to-end translation)
+                translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
+                if translator_name == "Aliyun_LiveTranslate":
+                    # Aliyun already provides translation, use message directly as translation
+                    # For speaker, the message is already translated to user's language
+                    translation = [message]
+                else:
+                    # Use traditional translation pipeline
+                    try:
+                        translation, success = model.getOutputTranslate(message, source_language=language)
+                        if all(success) is not True:
+                            self.changeToCTranslate2Process()
+                            self.run(
+                                400,
+                                self.run_mapping["error_translation_engine"],
+                                {
+                                    "message":"Translation engine limit error",
+                                    "data": None
+                                },
+                            )
+                    except Exception as e:
+                        # VRAM不足エラーの検出
+                        is_vram_error, error_message = model.detectVRAMError(e)
+                        if is_vram_error:
+                            self.run(
+                                400,
+                                self.run_mapping["error_translation_speaker_vram_overflow"],
+                                {
+                                    "message":"VRAM out of memory during translation of speaker",
+                                    "data": error_message
+                                },
+                            )
+                            # 翻訳機能をOFFにする
+                            self.setDisableTranslation()
+                            self.run(
+                                400,
+                                self.run_mapping["enable_translation"],
+                                {
+                                    "message":"Translation disabled due to VRAM overflow",
+                                    "data": False
+                                },
+                            )
+                            return
+                        else:
+                            # その他のエラーは通常通り処理
+                            raise
 
             if config.CONVERT_MESSAGE_TO_HIRAGANA is True or config.CONVERT_MESSAGE_TO_ROMAJI is True:
                 if language == "Japanese":
@@ -1865,6 +1883,50 @@ class Controller:
         self.updateTranslationEngineAndEngineList()
         return {"status":200, "result":config.AUTH_KEYS[translator_name]}
 
+    def getAliyunAuthKey(self, *args, **kwargs) -> dict:
+        return {"status":200, "result":config.AUTH_KEYS["Aliyun_LiveTranslate"]}
+
+    def setAliyunAuthKey(self, data, *args, **kwargs) -> dict:
+        printLog("Set Aliyun Auth Key", data)
+        translator_name = "Aliyun_LiveTranslate"
+        try:
+            data = str(data)
+            if len(data) >= 20:  # Basic length check for API key
+                key = data
+                auth_keys = config.AUTH_KEYS
+                auth_keys[translator_name] = key
+                config.AUTH_KEYS = auth_keys
+                config.SELECTABLE_TRANSLATION_ENGINE_STATUS[translator_name] = True
+                self.updateTranslationEngineAndEngineList()
+                response = {"status":200, "result":config.AUTH_KEYS[translator_name]}
+            else:
+                response = {
+                    "status":400,
+                    "result":{
+                        "message":"Aliyun auth key length is not correct",
+                        "data": config.AUTH_KEYS[translator_name]
+                    }
+                }
+        except Exception as e:
+            errorLogging()
+            response = {
+                "status":400,
+                "result":{
+                    "message":f"Error {e}",
+                    "data": config.AUTH_KEYS[translator_name]
+                }
+            }
+        return response
+
+    def delAliyunAuthKey(self, *args, **kwargs) -> dict:
+        translator_name = "Aliyun_LiveTranslate"
+        auth_keys = config.AUTH_KEYS
+        auth_keys[translator_name] = None
+        config.AUTH_KEYS = auth_keys
+        config.SELECTABLE_TRANSLATION_ENGINE_STATUS[translator_name] = False
+        self.updateTranslationEngineAndEngineList()
+        return {"status":200, "result":config.AUTH_KEYS[translator_name]}
+
     def getOpenAIModelList(self, *args, **kwargs) -> dict:
         return {"status":200, "result": config.SELECTABLE_OPENAI_MODEL_LIST}
 
@@ -3033,6 +3095,16 @@ class Controller:
                         model.updateTranslatorOllamaClient()
                     else:
                         printLog("Ollama is not available")
+                case "Aliyun_LiveTranslate":
+                    printLog("Start check Aliyun LiveTranslate API Key")
+                    config.SELECTABLE_TRANSLATION_ENGINE_STATUS[engine] = False
+                    if config.AUTH_KEYS[engine] is not None:
+                        # For Aliyun LiveTranslate, just check if API key exists
+                        # Real validation will happen during connection
+                        config.SELECTABLE_TRANSLATION_ENGINE_STATUS[engine] = True
+                        printLog("Aliyun LiveTranslate API Key is configured")
+                    else:
+                        printLog("Aliyun LiveTranslate API Key is not configured")
                 case _:
                     if connected_network is True:
                         config.SELECTABLE_TRANSLATION_ENGINE_STATUS[engine] = True

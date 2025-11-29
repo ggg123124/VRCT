@@ -230,6 +230,15 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set_delete",
         base_endpoint_name: "deepl_auth_key",
     },
+    // Aliyun
+    {
+        Category: "Translation",
+        Base_Name: "AliyunAuthKey",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set_delete",
+        base_endpoint_name: "aliyun_auth_key",
+    },
     // Plamo
     {
         Category: "Translation",

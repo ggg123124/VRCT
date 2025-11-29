@@ -207,6 +207,10 @@ mapping = {
     "/set/data/openai_auth_key": {"status": True, "variable":controller.setOpenAIAuthKey},
     "/delete/data/openai_auth_key": {"status": True, "variable":controller.delOpenAIAuthKey},
 
+    "/get/data/aliyun_auth_key": {"status": True, "variable":controller.getAliyunAuthKey},
+    "/set/data/aliyun_auth_key": {"status": True, "variable":controller.setAliyunAuthKey},
+    "/delete/data/aliyun_auth_key": {"status": True, "variable":controller.delAliyunAuthKey},
+
     "/run/lmstudio_connection": {"status": True, "variable":controller.checkTranslatorLMStudioConnection},
     "/get/data/selectable_lmstudio_model_list": {"status": True, "variable":controller.getTranslatorLStudioModelList},
     "/get/data/selected_lmstudio_model": {"status": True, "variable":controller.getTranslatorLMStudioModel},

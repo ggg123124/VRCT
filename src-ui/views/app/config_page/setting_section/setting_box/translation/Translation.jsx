@@ -37,6 +37,8 @@ export const Translation = () => {
 
             <DeepLAuthKey_Box />
 
+            <AliyunAuthKey_Box />
+
             <PlamoAuthKey_Box />
             <PlamoModelContainer />
 
@@ -248,6 +250,31 @@ const DeepLAuthKey_Box = () => {
                 open_webpage_label={t("config_page.translation.deepl_auth_key.open_auth_key_webpage")}
                 variable={variable}
                 state={currentDeepLAuthKey.state}
+                onChangeFunction={onChangeFunction}
+                saveFunction={saveFunction}
+            />
+        </>
+    );
+};
+
+const AliyunAuthKey_Box = () => {
+    const { t } = useI18n();
+    const { currentAliyunAuthKey, setAliyunAuthKey, deleteAliyunAuthKey } = useTranslation();
+
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentAliyunAuthKey.data,
+        state: currentAliyunAuthKey.state,
+        setFunction: setAliyunAuthKey,
+        deleteFunction: deleteAliyunAuthKey,
+    });
+
+    return (
+        <>
+            <AuthKeyContainer
+                label="Aliyun API Key"
+                desc="Aliyun DashScope API Key for Qwen3 LiveTranslate Flash real-time translation"
+                variable={variable}
+                state={currentAliyunAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
             />

@@ -769,3 +769,25 @@ LMStudio:
 Ollama:
   source: *openai_langs
   target: *openai_langs
+
+Aliyun_LiveTranslate:
+  source: &aliyun_livetranslate_langs
+    English: en
+    Chinese Simplified: zh
+    Chinese Traditional: zh
+    Russian: ru
+    French: fr
+    German: de
+    Portuguese: pt
+    Spanish: es
+    Italian: it
+    Indonesian: id
+    Korean: ko
+    Japanese: ja
+    Vietnamese: vi
+    Thai: th
+    Arabic: ar
+    Hindi: hi
+    Greek: el
+    Turkish: tr
+  target: *aliyun_livetranslate_langs

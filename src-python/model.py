@@ -19,6 +19,7 @@ from device_manager import device_manager
 from config import config
 
 from models.translation.translation_translator import Translator
+from models.translation.translation_aliyun_livetranslate import AliyunMicTranslateClient, AliyunSpeakerTranslateClient
 from models.osc.osc import OSCHandler
 from models.transcription.transcription_recorder import SelectedMicEnergyAndAudioRecorder, SelectedSpeakerEnergyAndAudioRecorder
 from models.transcription.transcription_recorder import SelectedMicEnergyRecorder, SelectedSpeakerEnergyRecorder
@@ -107,11 +108,13 @@ class Model:
         self.mic_transcriber = None
         self.mic_energy_recorder = None
         self.mic_energy_plot_progressbar = None
+        self.mic_aliyun_client = None
         self.speaker_print_transcript = None
         self.speaker_audio_recorder = None
         self.speaker_transcriber = None
         self.speaker_energy_recorder = None
         self.speaker_energy_plot_progressbar = None
+        self.speaker_aliyun_client = None
 
         self.previous_send_message = ""
         self.previous_receive_message = ""
@@ -624,84 +627,145 @@ class Model:
         if len(selected_mic_device) == 0 or mic_device_name == "NoDevice":
             fnc({"text": False, "language": None})
         else:
-            self.mic_audio_queue = Queue()
-            # self.mic_energy_queue = Queue()
+            # Check if Aliyun LiveTranslate engine is selected
+            translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
+            
+            if translator_name == "Aliyun_LiveTranslate":
+                # Use Aliyun LiveTranslate for end-to-end audio translation
+                self.mic_audio_queue = Queue()
+                
+                mic_device = selected_mic_device[0]
+                record_timeout = config.MIC_RECORD_TIMEOUT
+                phrase_timeout = config.MIC_PHRASE_TIMEOUT
+                if record_timeout > phrase_timeout:
+                    record_timeout = phrase_timeout
 
-            mic_device = selected_mic_device[0]
-            record_timeout = config.MIC_RECORD_TIMEOUT
-            phrase_timeout = config.MIC_PHRASE_TIMEOUT
-            if record_timeout > phrase_timeout:
-                record_timeout = phrase_timeout
-
-            self.mic_audio_recorder = SelectedMicEnergyAndAudioRecorder(
-                device=mic_device,
-                energy_threshold=config.MIC_THRESHOLD,
-                dynamic_energy_threshold=config.MIC_AUTOMATIC_THRESHOLD,
-                phrase_time_limit=record_timeout,
-            )
-            # self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, mic_energy_queue)
-            self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, None)
-            self.mic_transcriber = AudioTranscriber(
-                speaker=False,
-                source=self.mic_audio_recorder.source,
-                phrase_timeout=phrase_timeout,
-                max_phrases=config.MIC_MAX_PHRASES,
-                transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
-                root=config.PATH_LOCAL,
-                whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
-                device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
-                device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
-                compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
-            )
-            def sendMicTranscript():
+                self.mic_audio_recorder = SelectedMicEnergyAndAudioRecorder(
+                    device=mic_device,
+                    energy_threshold=config.MIC_THRESHOLD,
+                    dynamic_energy_threshold=config.MIC_AUTOMATIC_THRESHOLD,
+                    phrase_time_limit=record_timeout,
+                )
+                self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, None)
+                
+                # Get language settings
+                source_language = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]["1"]["language"]
+                target_language = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]["1"]["language"]
+                
+                # Map language names to Aliyun codes
+                from models.translation.translation_languages import translation_lang
+                aliyun_langs = translation_lang.get("Aliyun_LiveTranslate", {})
+                source_code = aliyun_langs.get("source", {}).get(source_language, "en")
+                target_code = aliyun_langs.get("target", {}).get(target_language, "zh")
+                
+                # Get API key
+                api_key = config.AUTH_KEYS.get("Aliyun_LiveTranslate")
+                if not api_key:
+                    fnc({"text": "Error: Aliyun API key not configured", "language": source_language})
+                    return
+                
+                # Get microphone sample rate
+                mic_sample_rate = int(mic_device.get("defaultSampleRate", 16000))
+                
+                # Create Aliyun client
                 try:
-                    selected_your_languages = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]
-                    languages = [data["language"] for data in selected_your_languages.values() if data["enable"] is True]
-                    countries = [data["country"] for data in selected_your_languages.values() if data["enable"] is True]
-                    if isinstance(self.mic_transcriber, AudioTranscriber) is True:
-                        res = self.mic_transcriber.transcribeAudioQueue(
-                            self.mic_audio_queue,
-                            languages,
-                            countries,
-                            config.MIC_AVG_LOGPROB,
-                            config.MIC_NO_SPEECH_PROB,
-                            config.MIC_NO_REPEAT_NGRAM_SIZE,
-                            config.MIC_VAD_FILTER,
-                            config.MIC_VAD_PARAMETERS,
-                        )
-                        if res:
-                            result = self.mic_transcriber.getTranscript()
-                            fnc(result)
-                except Exception:
+                    self.mic_aliyun_client = AliyunMicTranslateClient(
+                        api_key=api_key,
+                        source_language=source_code,
+                        target_language=target_code,
+                        mic_audio_queue=self.mic_audio_queue,
+                        result_callback=fnc,
+                        use_international=False,
+                        debug_save_audio=True,  # Enable audio debugging
+                        source_sample_rate=mic_sample_rate
+                    )
+                    self.mic_aliyun_client.start()
+                except Exception as e:
                     errorLogging()
+                    fnc({"text": f"Error starting Aliyun client: {str(e)}", "language": source_language})
+                    return
+                
+                self.changeMicTranscriptStatus()
+            else:
+                # Use traditional transcription pipeline
+                self.mic_audio_queue = Queue()
+                # self.mic_energy_queue = Queue()
 
-            def endMicTranscript():
-                while not self.mic_audio_queue.empty():
-                    self.mic_audio_queue.get()
-                # while not self.mic_energy_queue.empty():
-                #     self.mic_energy_queue.get()
-                self.mic_transcriber = None
-                gc.collect()
+                mic_device = selected_mic_device[0]
+                record_timeout = config.MIC_RECORD_TIMEOUT
+                phrase_timeout = config.MIC_PHRASE_TIMEOUT
+                if record_timeout > phrase_timeout:
+                    record_timeout = phrase_timeout
 
-            # def sendMicEnergy():
-            #     if mic_energy_queue.empty() is False:
-            #         energy = mic_energy_queue.get()
-            #         # print("mic energy:", energy)
-            #         try:
-            #             fnc(energy)
-            #         except Exception:
-            #             pass
-            #     sleep(0.01)
+                self.mic_audio_recorder = SelectedMicEnergyAndAudioRecorder(
+                    device=mic_device,
+                    energy_threshold=config.MIC_THRESHOLD,
+                    dynamic_energy_threshold=config.MIC_AUTOMATIC_THRESHOLD,
+                    phrase_time_limit=record_timeout,
+                )
+                # self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, mic_energy_queue)
+                self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, None)
+                self.mic_transcriber = AudioTranscriber(
+                    speaker=False,
+                    source=self.mic_audio_recorder.source,
+                    phrase_timeout=phrase_timeout,
+                    max_phrases=config.MIC_MAX_PHRASES,
+                    transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
+                    root=config.PATH_LOCAL,
+                    whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
+                    device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
+                    device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
+                    compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
+                )
+                def sendMicTranscript():
+                    try:
+                        selected_your_languages = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]
+                        languages = [data["language"] for data in selected_your_languages.values() if data["enable"] is True]
+                        countries = [data["country"] for data in selected_your_languages.values() if data["enable"] is True]
+                        if isinstance(self.mic_transcriber, AudioTranscriber) is True:
+                            res = self.mic_transcriber.transcribeAudioQueue(
+                                self.mic_audio_queue,
+                                languages,
+                                countries,
+                                config.MIC_AVG_LOGPROB,
+                                config.MIC_NO_SPEECH_PROB,
+                                config.MIC_NO_REPEAT_NGRAM_SIZE,
+                                config.MIC_VAD_FILTER,
+                                config.MIC_VAD_PARAMETERS,
+                            )
+                            if res:
+                                result = self.mic_transcriber.getTranscript()
+                                fnc(result)
+                    except Exception:
+                        errorLogging()
 
-            self.mic_print_transcript = threadFnc(sendMicTranscript, end_fnc=endMicTranscript)
-            self.mic_print_transcript.daemon = True
-            self.mic_print_transcript.start()
+                def endMicTranscript():
+                    while not self.mic_audio_queue.empty():
+                        self.mic_audio_queue.get()
+                    # while not self.mic_energy_queue.empty():
+                    #     self.mic_energy_queue.get()
+                    self.mic_transcriber = None
+                    gc.collect()
 
-            # self.mic_get_energy = threadFnc(sendMicEnergy)
-            # self.mic_get_energy.daemon = True
-            # self.mic_get_energy.start()
+                # def sendMicEnergy():
+                #     if mic_energy_queue.empty() is False:
+                #         energy = mic_energy_queue.get()
+                #         # print("mic energy:", energy)
+                #         try:
+                #             fnc(energy)
+                #         except Exception:
+                #             pass
+                #     sleep(0.01)
 
-            self.changeMicTranscriptStatus()
+                self.mic_print_transcript = threadFnc(sendMicTranscript, end_fnc=endMicTranscript)
+                self.mic_print_transcript.daemon = True
+                self.mic_print_transcript.start()
+
+                # self.mic_get_energy = threadFnc(sendMicEnergy)
+                # self.mic_get_energy.daemon = True
+                # self.mic_get_energy.start()
+
+                self.changeMicTranscriptStatus()
 
     def resumeMicTranscript(self):
         self.ensure_initialized()
@@ -754,6 +818,14 @@ class Model:
 
     def stopMicTranscript(self):
         self.ensure_initialized()
+        # Stop Aliyun client if exists
+        if self.mic_aliyun_client is not None:
+            try:
+                self.mic_aliyun_client.stop()
+            except Exception:
+                errorLogging()
+            self.mic_aliyun_client = None
+        
         if isinstance(self.mic_print_transcript, threadFnc):
             self.mic_print_transcript.stop()
             self.mic_print_transcript.join()
@@ -821,83 +893,152 @@ class Model:
             if callable(fnc):
                 fnc({"text": False, "language": None})
         else:
-            speaker_audio_queue: Queue = Queue()
-            speaker_device = selected_speaker_device[0]
-            record_timeout = config.SPEAKER_RECORD_TIMEOUT
-            phrase_timeout = config.SPEAKER_PHRASE_TIMEOUT
-            if record_timeout > phrase_timeout:
-                record_timeout = phrase_timeout
+            # Check if Aliyun LiveTranslate engine is selected
+            translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
+            
+            if translator_name == "Aliyun_LiveTranslate":
+                # Use Aliyun LiveTranslate for end-to-end audio translation
+                speaker_audio_queue: Queue = Queue()
+                
+                speaker_device = selected_speaker_device[0]
+                record_timeout = config.SPEAKER_RECORD_TIMEOUT
+                phrase_timeout = config.SPEAKER_PHRASE_TIMEOUT
+                if record_timeout > phrase_timeout:
+                    record_timeout = phrase_timeout
 
-            self.speaker_audio_recorder = SelectedSpeakerEnergyAndAudioRecorder(
-                device=speaker_device,
-                energy_threshold=config.SPEAKER_THRESHOLD,
-                dynamic_energy_threshold=config.SPEAKER_AUTOMATIC_THRESHOLD,
-                phrase_time_limit=record_timeout,
-            )
-            # self.speaker_audio_recorder.recordIntoQueue(speaker_audio_queue, speaker_energy_queue)
-            self.speaker_audio_recorder.recordIntoQueue(speaker_audio_queue, None)
-            self.speaker_transcriber = AudioTranscriber(
-                speaker=True,
-                source=self.speaker_audio_recorder.source,
-                phrase_timeout=phrase_timeout,
-                max_phrases=config.SPEAKER_MAX_PHRASES,
-                transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
-                root=config.PATH_LOCAL,
-                whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
-                device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
-                device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
-                compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
-            )
-            def sendSpeakerTranscript():
+                self.speaker_audio_recorder = SelectedSpeakerEnergyAndAudioRecorder(
+                    device=speaker_device,
+                    energy_threshold=config.SPEAKER_THRESHOLD,
+                    dynamic_energy_threshold=config.SPEAKER_AUTOMATIC_THRESHOLD,
+                    phrase_time_limit=record_timeout,
+                )
+                self.speaker_audio_recorder.recordIntoQueue(speaker_audio_queue, None)
+                
+                # Get language settings (reversed for speaker)
+                source_language = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]["1"]["language"]
+                target_language = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]["1"]["language"]
+                
+                # Map language names to Aliyun codes
+                from models.translation.translation_languages import translation_lang
+                aliyun_langs = translation_lang.get("Aliyun_LiveTranslate", {})
+                source_code = aliyun_langs.get("source", {}).get(source_language, "zh")
+                target_code = aliyun_langs.get("target", {}).get(target_language, "en")
+                
+                # Get API key
+                api_key = config.AUTH_KEYS.get("Aliyun_LiveTranslate")
+                if not api_key:
+                    if callable(fnc):
+                        fnc({"text": "Error: Aliyun API key not configured", "language": source_language})
+                    return
+                
+                # Get speaker sample rate
+                speaker_sample_rate = int(speaker_device.get("defaultSampleRate", 16000))
+                
+                # Create Aliyun client for speaker
                 try:
-                    selected_target_languages = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]
-                    languages = [data["language"] for data in selected_target_languages.values() if data["enable"] is True]
-                    countries = [data["country"] for data in selected_target_languages.values() if data["enable"] is True]
-                    if isinstance(self.speaker_transcriber, AudioTranscriber) is True:
-                        res = self.speaker_transcriber.transcribeAudioQueue(
-                            speaker_audio_queue,
-                            languages,
-                            countries,
-                            config.SPEAKER_AVG_LOGPROB,
-                            config.SPEAKER_NO_SPEECH_PROB,
-                            config.SPEAKER_NO_REPEAT_NGRAM_SIZE,
-                            config.SPEAKER_VAD_FILTER,
-                            config.SPEAKER_VAD_PARAMETERS,
-                        )
-                        if res:
-                            result = self.speaker_transcriber.getTranscript()
-                            fnc(result)
-                except Exception:
+                    self.speaker_aliyun_client = AliyunSpeakerTranslateClient(
+                        api_key=api_key,
+                        source_language=source_code,
+                        target_language=target_code,
+                        speaker_audio_queue=speaker_audio_queue,
+                        result_callback=fnc if callable(fnc) else lambda x: None,
+                        use_international=False,
+                        debug_save_audio=True,  # Enable audio debugging
+                        source_sample_rate=speaker_sample_rate
+                    )
+                    self.speaker_aliyun_client.start()
+                except Exception as e:
                     errorLogging()
+                    if callable(fnc):
+                        fnc({"text": f"Error starting Aliyun client: {str(e)}", "language": source_language})
+                    return
+            else:
+                # Use traditional transcription pipeline
+                speaker_audio_queue: Queue = Queue()
+                speaker_device = selected_speaker_device[0]
+                record_timeout = config.SPEAKER_RECORD_TIMEOUT
+                phrase_timeout = config.SPEAKER_PHRASE_TIMEOUT
+                if record_timeout > phrase_timeout:
+                    record_timeout = phrase_timeout
 
-            def endSpeakerTranscript():
-                while not speaker_audio_queue.empty():
-                    speaker_audio_queue.get()
-                # while not speaker_energy_queue.empty():
-                #     speaker_energy_queue.get()
-                self.speaker_transcriber = None
-                gc.collect()
+                self.speaker_audio_recorder = SelectedSpeakerEnergyAndAudioRecorder(
+                    device=speaker_device,
+                    energy_threshold=config.SPEAKER_THRESHOLD,
+                    dynamic_energy_threshold=config.SPEAKER_AUTOMATIC_THRESHOLD,
+                    phrase_time_limit=record_timeout,
+                )
+                # self.speaker_audio_recorder.recordIntoQueue(speaker_audio_queue, speaker_energy_queue)
+                self.speaker_audio_recorder.recordIntoQueue(speaker_audio_queue, None)
+                self.speaker_transcriber = AudioTranscriber(
+                    speaker=True,
+                    source=self.speaker_audio_recorder.source,
+                    phrase_timeout=phrase_timeout,
+                    max_phrases=config.SPEAKER_MAX_PHRASES,
+                    transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
+                    root=config.PATH_LOCAL,
+                    whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
+                    device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
+                    device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
+                    compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
+                )
+                def sendSpeakerTranscript():
+                    try:
+                        selected_target_languages = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]
+                        languages = [data["language"] for data in selected_target_languages.values() if data["enable"] is True]
+                        countries = [data["country"] for data in selected_target_languages.values() if data["enable"] is True]
+                        if isinstance(self.speaker_transcriber, AudioTranscriber) is True:
+                            res = self.speaker_transcriber.transcribeAudioQueue(
+                                speaker_audio_queue,
+                                languages,
+                                countries,
+                                config.SPEAKER_AVG_LOGPROB,
+                                config.SPEAKER_NO_SPEECH_PROB,
+                                config.SPEAKER_NO_REPEAT_NGRAM_SIZE,
+                                config.SPEAKER_VAD_FILTER,
+                                config.SPEAKER_VAD_PARAMETERS,
+                            )
+                            if res:
+                                result = self.speaker_transcriber.getTranscript()
+                                fnc(result)
+                    except Exception:
+                        errorLogging()
 
-            # def sendSpeakerEnergy():
-            #     if speaker_energy_queue.empty() is False:
-            #         energy = speaker_energy_queue.get()
-            #         # print("speaker energy:", energy)
-            #         try:
-            #             fnc(energy)
-            #         except Exception:
-            #             pass
-            #     sleep(0.01)
+                def endSpeakerTranscript():
+                    while not speaker_audio_queue.empty():
+                        speaker_audio_queue.get()
+                    # while not speaker_energy_queue.empty():
+                    #     speaker_energy_queue.get()
+                    self.speaker_transcriber = None
+                    gc.collect()
 
-            self.speaker_print_transcript = threadFnc(sendSpeakerTranscript, end_fnc=endSpeakerTranscript)
-            self.speaker_print_transcript.daemon = True
-            self.speaker_print_transcript.start()
+                # def sendSpeakerEnergy():
+                #     if speaker_energy_queue.empty() is False:
+                #         energy = speaker_energy_queue.get()
+                #         # print("speaker energy:", energy)
+                #         try:
+                #             fnc(energy)
+                #         except Exception:
+                #             pass
+                #     sleep(0.01)
 
-            # self.speaker_get_energy = threadFnc(sendSpeakerEnergy)
-            # self.speaker_get_energy.daemon = True
-            # self.speaker_get_energy.start()
+                self.speaker_print_transcript = threadFnc(sendSpeakerTranscript, end_fnc=endSpeakerTranscript)
+                self.speaker_print_transcript.daemon = True
+                self.speaker_print_transcript.start()
+
+                # self.speaker_get_energy = threadFnc(sendSpeakerEnergy)
+                # self.speaker_get_energy.daemon = True
+                # self.speaker_get_energy.start()
 
     def stopSpeakerTranscript(self):
         self.ensure_initialized()
+        # Stop Aliyun client if exists
+        if self.speaker_aliyun_client is not None:
+            try:
+                self.speaker_aliyun_client.stop()
+            except Exception:
+                errorLogging()
+            self.speaker_aliyun_client = None
+        
         if isinstance(self.speaker_print_transcript, threadFnc):
             self.speaker_print_transcript.stop()
             self.speaker_print_transcript.join()

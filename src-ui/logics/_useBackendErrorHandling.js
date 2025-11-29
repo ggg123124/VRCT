@@ -35,7 +35,7 @@ export const _useBackendErrorHandling = () => {
 
     const { updateTranslationStatus, updateTranscriptionSendStatus, updateTranscriptionReceiveStatus } = useMainFunction();
 
-    const { updateDeepLAuthKey } = useTranslation();
+    const { updateDeepLAuthKey, updateAliyunAuthKey } = useTranslation();
 
     const { updateEnableVrcMicMuteSync } = useOthers();
 
@@ -126,6 +126,19 @@ export const _useBackendErrorHandling = () => {
                 } else { // Exception
                     updateDeepLAuthKey(data);
                     showNotification_Error(message, { category_id: "deepl_auth_key" });
+                }
+                return;
+
+            case "/set/data/aliyun_auth_key":
+                if (message === "Aliyun auth key is empty") {
+                    updateAliyunAuthKey(data);
+                    showNotification_Error("Aliyun API key cannot be empty", { category_id: "aliyun_auth_key" });
+                } else if (message === "Authentication failure of Aliyun auth key") {
+                    updateAliyunAuthKey(data);
+                    showNotification_Error("Aliyun API key authentication failed", { category_id: "aliyun_auth_key" });
+                } else { // Exception
+                    updateAliyunAuthKey(data);
+                    showNotification_Error(message, { category_id: "aliyun_auth_key" });
                 }
                 return;
 

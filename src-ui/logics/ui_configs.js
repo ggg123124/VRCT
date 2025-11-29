@@ -103,6 +103,7 @@ if (IS_PLUGIN_PATH_DEV_MODE || IS_PLUGIN_LIST_URL_DEV_MODE) console.warn("ui_con
 export const translator_status = [
     { id: "DeepL", label: "DeepL", is_available: false },
     { id: "DeepL_API", label: `DeepL API`, is_available: false },
+    { id: "Aliyun_LiveTranslate", label: "Aliyun LiveTranslate", is_available: false },
     { id: "Google", label: "Google", is_available: false },
     { id: "Bing", label: "Bing", is_available: false },
     { id: "Papago", label: "Papago", is_available: false },
