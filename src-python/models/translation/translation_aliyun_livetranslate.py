@@ -1,16 +1,15 @@
-"""Aliyun Qwen3 LiveTranslate Flash real-time audio translation engine.
+"""Aliyun Gummy Chat real-time audio translation engine.
 
 This module implements end-to-end audio translation using Aliyun's
-LiveTranslate WebSocket API. It bypasses local VAD and STT, directly
-translating audio streams from microphone and speaker devices.
+Gummy Chat model with DashScope SDK. It bypasses local VAD and STT,
+directly translating audio streams from microphone and speaker devices.
 
 Architecture:
-- Reuses existing audio capture (SelectedMicEnergyAndAudioRecorder,
-  SelectedSpeakerEnergyAndAudioRecorder)
-- Reads from mic_audio_queue and speaker_audio_queue
-- Converts audio format to 16kHz mono PCM16
-- Encodes audio to base64 and sends via WebSocket
-- Receives translation results and invokes callbacks
+- Uses DashScope TranslationRecognizerChat for sentence-level translation
+- Automatically detects sentence end (default 700ms silence)
+- Each sentence triggers a new translation session
+- Reuses existing audio capture (SelectedMicEnergyAndAudioRecorder)
+- Reads from mic_audio_queue
 """
 
 import asyncio
@@ -138,6 +137,10 @@ class AliyunLiveTranslateClient:
         self._last_audio_time = time.time()
         self._heartbeat_interval = 60  # Send heartbeat every 60 seconds
         
+        # Streaming translation buffer
+        self._current_translation = ""
+        self._last_response_id = None
+        
         # Debug: Save audio to file
         self.debug_save_audio = debug_save_audio
         self.debug_audio_file = None
@@ -148,7 +151,7 @@ class AliyunLiveTranslateClient:
                 import os
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 # Save to workspace root, NOT in src-tauri to avoid triggering file watcher
-                debug_dir = "debug_audio_output"
+                debug_dir = "E:\workspace\python\VRCT\debug_audio_output"
                 os.makedirs(debug_dir, exist_ok=True)
                 debug_filename = f"{debug_dir}/aliyun_audio_{timestamp}_converted_16k.pcm"
                 debug_filename_orig = f"{debug_dir}/aliyun_audio_{timestamp}_original_{source_sample_rate}hz.pcm"
@@ -185,16 +188,26 @@ class AliyunLiveTranslateClient:
         }
     
     def _create_session_update_event(self) -> Dict[str, Any]:
-        """Create session.update event for text-only mode."""
+        """Create session.update event for text-only mode.
+        
+        Note: qwen3-livetranslate-flash-realtime uses automatic VAD detection.
+        The server automatically detects audio start/end and triggers responses.
+        Manual commit is NOT supported for this model.
+        """
         return {
             "event_id": f"event_{int(time.time() * 1000)}",
             "type": "session.update",
             "session": {
                 "modalities": ["text"],  # Text-only mode
                 "input_audio_format": "pcm16",
+                "input_audio_transcription": {
+                    "language": self.source_language  # Set source language explicitly
+                },
                 "translation": {
                     "language": self.target_language
                 }
+                # Note: turn_detection is NOT configurable for LiveTranslate model
+                # Server automatically uses VAD to detect speech end
             }
         }
     
@@ -224,24 +237,69 @@ class AliyunLiveTranslateClient:
         """
         event_type = event.get("type", "")
         
+        # Debug: Log all events
+        printLog(f"[Aliyun LiveTranslate Debug] Received event type: {event_type}")
+        
         if event_type == "session.created":
             printLog(f"[Aliyun LiveTranslate] Session created")
         elif event_type == "session.updated":
             printLog(f"[Aliyun LiveTranslate] Session updated")
-        elif event_type == "response.text.done":
-            # Translation result received
-            translation_text = event.get("text", "")
-            if translation_text:
-                # Invoke callback with translation result
+        
+        elif event_type == "response.created":
+            # New response started, reset translation buffer
+            response_id = event.get("response_id", "")
+            response_start_time = datetime.now()
+            printLog(f"[Aliyun Debug Timing] Server started processing at: {response_start_time.strftime('%H:%M:%S.%f')[:-3]}")
+            if response_id != self._last_response_id:
+                self._current_translation = ""
+                self._last_response_id = response_id
+                printLog(f"[Aliyun LiveTranslate Debug] New response started: {response_id}")
+        
+        elif event_type == "response.text.text":
+            # Streaming text update (incremental)
+            delta_text = event.get("text", "")
+            self._current_translation += delta_text
+            printLog(f"[Aliyun LiveTranslate Debug] Delta update: '{delta_text}', current: '{self._current_translation}'")
+            
+            # Send incremental update to callback
+            if self._current_translation:
                 result = {
-                    "text": translation_text,
-                    "language": self.source_language,
+                    "text": self._current_translation,
+                    "language": self.target_language,
                     "timestamp": datetime.now()
                 }
                 try:
                     self.result_callback(result)
-                except Exception:
+                    printLog(f"[Aliyun LiveTranslate Debug] Streaming callback sent: '{self._current_translation}'")
+                except Exception as e:
+                    printLog(f"[Aliyun LiveTranslate Debug] Callback error: {e}")
                     errorLogging()
+        
+        elif event_type == "response.text.done":
+            # Translation result completed (final)
+            translation_text = event.get("text", "")
+            response_time = datetime.now()
+            printLog(f"[Aliyun LiveTranslate Debug] response.text.done - text: '{translation_text}'")
+            printLog(f"[Aliyun Debug Timing] Translation response received at: {response_time.strftime('%H:%M:%S.%f')[:-3]}")
+            
+            # Use the complete text from the event (more reliable than buffer)
+            if translation_text:
+                result = {
+                    "text": translation_text,
+                    "language": self.target_language,
+                    "timestamp": response_time
+                }
+                printLog(f"[Aliyun LiveTranslate Debug] Final translation: '{translation_text}'")
+                try:
+                    self.result_callback(result)
+                    printLog(f"[Aliyun LiveTranslate Debug] Final callback invoked successfully")
+                except Exception as e:
+                    printLog(f"[Aliyun LiveTranslate Debug] Callback error: {e}")
+                    errorLogging()
+            
+            # Reset buffer for next response
+            self._current_translation = ""
+        
         elif event_type == "response.done":
             # Response completed
             usage = event.get("response", {}).get("usage", {})
@@ -291,14 +349,38 @@ class AliyunLiveTranslateClient:
             printLog("[Aliyun LiveTranslate] WebSocket disconnected")
     
     async def _audio_sender(self) -> None:
-        """Send audio data from queue to WebSocket."""
+        """Send audio data from queue to WebSocket in small streaming chunks.
+        
+        Note: For qwen3-livetranslate-flash-realtime model:
+        - Server automatically detects speech start/end using VAD
+        - NO manual commit needed - just keep sending audio chunks
+        - Server will automatically trigger translation when speech ends
+        """
+        accumulated_buffer = b""  # Buffer to accumulate audio
+        target_chunk_size = AudioFormatConverter.TARGET_SAMPLE_RATE * 2 // 10  # 0.1 second chunks (16kHz * bytes_per_sample / 10)
+        
         while self.running and not self._stop_event.is_set():
             try:
                 # Get audio data from queue with timeout
                 try:
+                    queue_get_start = time.time()
                     audio_data, timestamp = self.audio_queue.get(timeout=0.1)
+                    queue_get_end = time.time()
+                    
+                    # Debug: Log timing information
+                    time_in_queue = queue_get_end - timestamp.timestamp()
+                    printLog(f"[Aliyun Debug Timing] Audio received from queue:")
+                    printLog(f"  - Size: {len(audio_data)} bytes")
+                    printLog(f"  - Recorded at: {timestamp.strftime('%H:%M:%S.%f')[:-3]}")
+                    printLog(f"  - Retrieved at: {datetime.fromtimestamp(queue_get_end).strftime('%H:%M:%S.%f')[:-3]}")
+                    printLog(f"  - Time in queue: {time_in_queue:.3f}s")
+                    
                 except queue.Empty:
-                    await asyncio.sleep(0.01)
+                    # If we have accumulated data and no new data for a while, send it
+                    if accumulated_buffer:
+                        await asyncio.sleep(0.05)
+                    else:
+                        await asyncio.sleep(0.005)
                     continue
                 
                 # Update last audio time
@@ -308,7 +390,7 @@ class AliyunLiveTranslateClient:
                 if self.debug_save_audio and self.debug_audio_file_original:
                     try:
                         self.debug_audio_file_original.write(audio_data)
-                        self.debug_audio_file_original.flush()  # Ensure data is written
+                        self.debug_audio_file_original.flush()
                         if self.debug_audio_counter == 0:
                             printLog(f"[Aliyun LiveTranslate Debug] First chunk size: {len(audio_data)} bytes")
                     except Exception as e:
@@ -318,38 +400,62 @@ class AliyunLiveTranslateClient:
                 converted_audio = audio_data
                 if self.source_sample_rate != AudioFormatConverter.TARGET_SAMPLE_RATE:
                     try:
-                        printLog(f"[Aliyun LiveTranslate Debug] Converting audio: {self.source_sample_rate}Hz -> 16000Hz, input size: {len(audio_data)} bytes")
+                        conversion_start = time.time()
+                        if self.debug_audio_counter == 0:
+                            printLog(f"[Aliyun LiveTranslate Debug] Converting audio: {self.source_sample_rate}Hz -> 16000Hz, input size: {len(audio_data)} bytes")
                         converted_audio = AudioFormatConverter.convert_audio_data(
                             audio_data=audio_data,
                             source_sample_rate=self.source_sample_rate,
-                            source_channels=1,  # Assume mono from mic
-                            source_sample_width=2  # 16-bit PCM
+                            source_channels=1,
+                            source_sample_width=2
                         )
-                        printLog(f"[Aliyun LiveTranslate Debug] Conversion complete: output size: {len(converted_audio)} bytes")
+                        conversion_end = time.time()
                         if self.debug_audio_counter == 0:
-                            printLog(f"[Aliyun LiveTranslate Debug] First chunk: {len(audio_data)} bytes ({self.source_sample_rate}Hz) -> {len(converted_audio)} bytes (16000Hz)")
+                            printLog(f"[Aliyun LiveTranslate Debug] Conversion complete: output size: {len(converted_audio)} bytes")
+                            printLog(f"[Aliyun LiveTranslate Debug] Will stream in ~{target_chunk_size} byte chunks (0.1s each)")
+                            printLog(f"[Aliyun Debug Timing] Conversion time: {(conversion_end - conversion_start)*1000:.1f}ms")
                     except Exception as e:
                         printLog(f"[Aliyun LiveTranslate] Audio conversion error: {e}")
-                        errorLogging()
-                        converted_audio = audio_data  # Fallback to original
-                        printLog(f"[Aliyun LiveTranslate] Using original audio without conversion")
-                else:
-                    printLog(f"[Aliyun LiveTranslate Debug] No conversion needed, sample rate already 16000Hz")
+                        continue
                 
-                # Debug: Save converted audio data to file
-                if self.debug_save_audio and self.debug_audio_file:
-                    try:
-                        self.debug_audio_file.write(converted_audio)
-                        self.debug_audio_file.flush()  # Ensure data is written
-                        self.debug_audio_counter += 1
-                        if self.debug_audio_counter % 10 == 0:
-                            printLog(f"[Aliyun LiveTranslate Debug] Processed {self.debug_audio_counter} audio chunks")
-                    except Exception as e:
-                        printLog(f"[Aliyun LiveTranslate Debug] Error writing converted audio: {e}")
+                # Add to buffer
+                accumulated_buffer += converted_audio
                 
-                # Create and send audio append event
-                event = self._create_audio_append_event(converted_audio)
-                await self.ws.send(json.dumps(event))
+                # Send in small chunks for better streaming performance
+                chunks_sent_this_batch = 0
+                send_start = time.time()
+                while len(accumulated_buffer) >= target_chunk_size:
+                    chunk_to_send = accumulated_buffer[:target_chunk_size]
+                    accumulated_buffer = accumulated_buffer[target_chunk_size:]
+                    
+                    # Debug: Save converted audio
+                    if self.debug_save_audio and self.debug_audio_file:
+                        try:
+                            self.debug_audio_file.write(chunk_to_send)
+                            self.debug_audio_file.flush()
+                            self.debug_audio_counter += 1
+                            if self.debug_audio_counter % 50 == 0:
+                                printLog(f"[Aliyun LiveTranslate Debug] Streamed {self.debug_audio_counter} chunks ({self.debug_audio_counter * 0.1:.1f}s)")
+                        except Exception as e:
+                            printLog(f"[Aliyun LiveTranslate Debug] Error writing converted audio: {e}")
+                    
+                    # Create and send audio append event
+                    event = self._create_audio_append_event(chunk_to_send)
+                    send_time = datetime.now()
+                    await self.ws.send(json.dumps(event))
+                    chunks_sent_this_batch += 1
+                    
+                    # Log first chunk send time
+                    if self.debug_audio_counter == 1:
+                        printLog(f"[Aliyun Debug Timing] First audio chunk sent at: {send_time.strftime('%H:%M:%S.%f')[:-3]}")
+                    
+                    # Small delay to prevent overwhelming the server
+                    await asyncio.sleep(0.005)
+                
+                # Log batch send timing
+                if chunks_sent_this_batch > 0:
+                    send_end = time.time()
+                    printLog(f"[Aliyun Debug Timing] Sent {chunks_sent_this_batch} chunks in {(send_end - send_start)*1000:.1f}ms")
                 
             except Exception as e:
                 printLog(f"[Aliyun LiveTranslate] Audio sender error: {e}")
@@ -389,6 +495,9 @@ class AliyunLiveTranslateClient:
                 # Parse JSON event
                 try:
                     event = json.loads(message)
+                    # Debug: Log raw message for first few events
+                    if self.debug_audio_counter < 3:
+                        printLog(f"[Aliyun LiveTranslate Debug] Raw event: {message[:200]}...")
                     await self._handle_server_event(event)
                 except json.JSONDecodeError:
                     printLog(f"[Aliyun LiveTranslate] Invalid JSON received: {message}")

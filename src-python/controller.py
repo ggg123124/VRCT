@@ -251,7 +251,7 @@ class Controller:
                     },
                 )
 
-    def micMessage(self, result: dict) -> None:
+    def micMessage(self, result:dict) -> None:
         message = result["text"]
         language = result["language"]
         if isinstance(message, bool) and message is False:
@@ -275,18 +275,28 @@ class Controller:
                     {"message":f"Detected by word filter: {message}"},
                 )
                 return
+            
+            # For Aliyun LiveTranslate (Gummy Chat), only check duplicates for final results
+            translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
+            if translator_name == "Aliyun_LiveTranslate":
+                is_final = result.get("is_final", True)
+                # Only check for duplicates on final results to avoid filtering out final translations
+                if is_final and model.detectRepeatSendMessage(message):
+                    return
             elif model.detectRepeatSendMessage(message):
                 return
-            elif config.ENABLE_TRANSLATION is False:
+            
+            if config.ENABLE_TRANSLATION is False:
                 pass
             else:
                 # Check if using Aliyun LiveTranslate (which provides end-to-end translation)
                 translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
                 if translator_name == "Aliyun_LiveTranslate":
-                    # Aliyun already provides translation, use message directly as translation
-                    # The message from Aliyun is already translated text
+                    # Aliyun provides both original text and translation
+                    # result["translation"] contains the translated text
+                    translated_text = result.get("translation", "")
                     target_languages = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]
-                    translation = [message if data["enable"] is True else "" 
+                    translation = [translated_text if data["enable"] is True else "" 
                                  for data in target_languages.values()]
                 else:
                     # Use traditional translation pipeline
@@ -445,17 +455,27 @@ class Controller:
                     {"message":f"Detected by word filter: {message}"},
                 )
                 return
+            
+            # For Aliyun LiveTranslate (Gummy Chat), only check duplicates for final results
+            translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
+            if translator_name == "Aliyun_LiveTranslate":
+                is_final = result.get("is_final", True)
+                # Only check for duplicates on final results to avoid filtering out final translations
+                if is_final and model.detectRepeatReceiveMessage(message):
+                    return
             elif model.detectRepeatReceiveMessage(message):
                 return
-            elif config.ENABLE_TRANSLATION is False:
+            
+            if config.ENABLE_TRANSLATION is False:
                 pass
             else:
                 # Check if using Aliyun LiveTranslate (which provides end-to-end translation)
                 translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
                 if translator_name == "Aliyun_LiveTranslate":
-                    # Aliyun already provides translation, use message directly as translation
-                    # For speaker, the message is already translated to user's language
-                    translation = [message]
+                    # Aliyun provides both original text and translation
+                    # result["translation"] contains the translated text
+                    translated_text = result.get("translation", "")
+                    translation = [translated_text]
                 else:
                     # Use traditional translation pipeline
                     try:

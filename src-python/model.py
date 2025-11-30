@@ -19,7 +19,7 @@ from device_manager import device_manager
 from config import config
 
 from models.translation.translation_translator import Translator
-from models.translation.translation_aliyun_livetranslate import AliyunMicTranslateClient, AliyunSpeakerTranslateClient
+from models.translation.translation_aliyun_gummy import AliyunMicGummyChatClient, AliyunSpeakerGummyChatClient, AliyunMicGummyChatDirectClient, AliyunSpeakerGummyChatDirectClient
 from models.osc.osc import OSCHandler
 from models.transcription.transcription_recorder import SelectedMicEnergyAndAudioRecorder, SelectedSpeakerEnergyAndAudioRecorder
 from models.transcription.transcription_recorder import SelectedMicEnergyRecorder, SelectedSpeakerEnergyRecorder
@@ -33,7 +33,7 @@ from models.overlay.overlay import Overlay
 from models.overlay.overlay_image import OverlayImage
 from models.watchdog.watchdog import Watchdog
 from models.websocket.websocket_server import WebSocketServer
-from utils import errorLogging, setupLogger
+from utils import errorLogging, setupLogger, printLog
 
 class threadFnc(Thread):
     """A tiny Thread wrapper that repeatedly calls a function.
@@ -631,22 +631,8 @@ class Model:
             translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
             
             if translator_name == "Aliyun_LiveTranslate":
-                # Use Aliyun LiveTranslate for end-to-end audio translation
-                self.mic_audio_queue = Queue()
-                
+                # Use Aliyun Gummy Chat DIRECT mode (no queue, like official example)
                 mic_device = selected_mic_device[0]
-                record_timeout = config.MIC_RECORD_TIMEOUT
-                phrase_timeout = config.MIC_PHRASE_TIMEOUT
-                if record_timeout > phrase_timeout:
-                    record_timeout = phrase_timeout
-
-                self.mic_audio_recorder = SelectedMicEnergyAndAudioRecorder(
-                    device=mic_device,
-                    energy_threshold=config.MIC_THRESHOLD,
-                    dynamic_energy_threshold=config.MIC_AUTOMATIC_THRESHOLD,
-                    phrase_time_limit=record_timeout,
-                )
-                self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, None)
                 
                 # Get language settings
                 source_language = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]["1"]["language"]
@@ -664,28 +650,29 @@ class Model:
                     fnc({"text": "Error: Aliyun API key not configured", "language": source_language})
                     return
                 
-                # Get microphone sample rate
-                mic_sample_rate = int(mic_device.get("defaultSampleRate", 16000))
+                # Get microphone device index for PyAudio
+                mic_device_index = mic_device.get("index", None)
                 
-                # Create Aliyun client
+                # Create DIRECT Gummy Chat client (no queue, no recorder)
                 try:
-                    self.mic_aliyun_client = AliyunMicTranslateClient(
+                    printLog(f"[Model] Starting Gummy Direct client - device index: {mic_device_index}")
+                    self.mic_aliyun_client = AliyunMicGummyChatDirectClient(
                         api_key=api_key,
                         source_language=source_code,
                         target_language=target_code,
-                        mic_audio_queue=self.mic_audio_queue,
+                        mic_device_index=mic_device_index,
                         result_callback=fnc,
-                        use_international=False,
-                        debug_save_audio=True,  # Enable audio debugging
-                        source_sample_rate=mic_sample_rate
+                        max_end_silence=700,  # 700ms silence to end sentence
+                        max_sentence_duration=25000  # 25s max to prevent TOO_LONG_SPEECH error
                     )
                     self.mic_aliyun_client.start()
                 except Exception as e:
                     errorLogging()
-                    fnc({"text": f"Error starting Aliyun client: {str(e)}", "language": source_language})
+                    fnc({"text": f"Error starting Gummy Direct client: {str(e)}", "language": source_language})
                     return
                 
-                self.changeMicTranscriptStatus()
+                # Note: No need to call changeMicTranscriptStatus() as we don't use recorder
+                printLog("[Model] Gummy Direct client started successfully")
             else:
                 # Use traditional transcription pipeline
                 self.mic_audio_queue = Queue()
@@ -895,24 +882,19 @@ class Model:
         else:
             # Check if Aliyun LiveTranslate engine is selected
             translator_name = config.SELECTED_TRANSLATION_ENGINES[config.SELECTED_TAB_NO]
+            printLog(f"[Model] Speaker translator: {translator_name}")
             
             if translator_name == "Aliyun_LiveTranslate":
-                # Use Aliyun LiveTranslate for end-to-end audio translation
-                speaker_audio_queue: Queue = Queue()
-                
+                # Use Aliyun Gummy Chat with DIRECT PyAudioWPatch mode for speaker
+                # Using pyaudiowpatch (not standard PyAudio) with stream callback mode
+                # This is the ONLY way to properly capture WASAPI Loopback audio
                 speaker_device = selected_speaker_device[0]
-                record_timeout = config.SPEAKER_RECORD_TIMEOUT
-                phrase_timeout = config.SPEAKER_PHRASE_TIMEOUT
-                if record_timeout > phrase_timeout:
-                    record_timeout = phrase_timeout
-
-                self.speaker_audio_recorder = SelectedSpeakerEnergyAndAudioRecorder(
-                    device=speaker_device,
-                    energy_threshold=config.SPEAKER_THRESHOLD,
-                    dynamic_energy_threshold=config.SPEAKER_AUTOMATIC_THRESHOLD,
-                    phrase_time_limit=record_timeout,
-                )
-                self.speaker_audio_recorder.recordIntoQueue(speaker_audio_queue, None)
+                speaker_device_index = int(speaker_device.get('index', -1))
+                
+                if speaker_device_index < 0:
+                    if callable(fnc):
+                        fnc({"text": "Error: Invalid speaker device index", "language": source_language})
+                    return
                 
                 # Get language settings (reversed for speaker)
                 source_language = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]["1"]["language"]
@@ -921,8 +903,8 @@ class Model:
                 # Map language names to Aliyun codes
                 from models.translation.translation_languages import translation_lang
                 aliyun_langs = translation_lang.get("Aliyun_LiveTranslate", {})
-                source_code = aliyun_langs.get("source", {}).get(source_language, "zh")
-                target_code = aliyun_langs.get("target", {}).get(target_language, "en")
+                source_code = aliyun_langs.get("source", {}).get(source_language, "ja")
+                target_code = aliyun_langs.get("target", {}).get(target_language, "zh")
                 
                 # Get API key
                 api_key = config.AUTH_KEYS.get("Aliyun_LiveTranslate")
@@ -931,27 +913,26 @@ class Model:
                         fnc({"text": "Error: Aliyun API key not configured", "language": source_language})
                     return
                 
-                # Get speaker sample rate
-                speaker_sample_rate = int(speaker_device.get("defaultSampleRate", 16000))
-                
-                # Create Aliyun client for speaker
+                # Create Gummy Chat Direct client for speaker (PyAudioWPatch + native sample rate + resampling)
                 try:
-                    self.speaker_aliyun_client = AliyunSpeakerTranslateClient(
+                    printLog(f"[Model] Starting Gummy Direct Speaker client (PyAudioWPatch mode) - device index: {speaker_device_index}")
+                    self.speaker_aliyun_client = AliyunSpeakerGummyChatDirectClient(
                         api_key=api_key,
-                        source_language=source_code,
-                        target_language=target_code,
-                        speaker_audio_queue=speaker_audio_queue,
+                        source_language=source_code,  # What others speak (speaker captures this)
+                        target_language=target_code,  # Translate to user's language
+                        speaker_device_index=speaker_device_index,
                         result_callback=fnc if callable(fnc) else lambda x: None,
-                        use_international=False,
-                        debug_save_audio=True,  # Enable audio debugging
-                        source_sample_rate=speaker_sample_rate
+                        max_end_silence=700,  # 700ms like mic (high-quality resample avoids cutting)
+                        max_sentence_duration=25000  # 25s max to prevent TOO_LONG_SPEECH error
                     )
                     self.speaker_aliyun_client.start()
                 except Exception as e:
                     errorLogging()
                     if callable(fnc):
-                        fnc({"text": f"Error starting Aliyun client: {str(e)}", "language": source_language})
+                        fnc({"text": f"Error starting Gummy Direct Speaker client: {str(e)}", "language": source_language})
                     return
+                
+                printLog("[Model] Gummy Direct Speaker client (PyAudioWPatch mode) started successfully")
             else:
                 # Use traditional transcription pipeline
                 speaker_audio_queue: Queue = Queue()

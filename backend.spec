@@ -14,7 +14,7 @@ a = Analysis(
         ('.venv/Lib/site-packages/faster_whisper', 'faster_whisper/'),
         ('.venv/Lib/site-packages/hf_xet', 'hf_xet/')
         ],
-    hiddenimports=[],
+    hiddenimports=['dashscope', 'dashscope.audio', 'dashscope.audio.asr'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

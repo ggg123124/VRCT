@@ -14,7 +14,7 @@ a = Analysis(
         ('.venv_cuda/Lib/site-packages/faster_whisper', 'faster_whisper/'),
         ('.venv/Lib/site-packages/hf_xet', 'hf_xet/')
         ],
-    hiddenimports=[],
+    hiddenimports=['scipy', 'scipy.signal', 'scipy.signal._max_len_seq_inner', 'dashscope', 'dashscope.audio', 'dashscope.audio.asr'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

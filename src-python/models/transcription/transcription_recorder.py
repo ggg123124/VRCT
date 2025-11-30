@@ -174,8 +174,20 @@ class BaseEnergyAndAudioRecorder:
             self.recorder.adjust_for_ambient_noise(self.source)
 
     def recordIntoQueue(self, audio_queue: Any, energy_queue: Any = None) -> None:
+        # Debug: Log the recorder parameters
+        from utils import printLog
+        printLog(f"[Recorder Debug] Recorder parameters:")
+        printLog(f"  - phrase_time_limit: {self.phrase_time_limit}")
+        printLog(f"  - phrase_timeout: {self.phrase_timeout}")
+        printLog(f"  - record_timeout: {self.record_timeout}")
+        printLog(f"  - energy_threshold: {self.recorder.energy_threshold}")
+        printLog(f"  - dynamic_energy_threshold: {self.recorder.dynamic_energy_threshold}")
+        
         def audioRecordCallback(_, audio):
-            audio_queue.put((audio.get_raw_data(), datetime.now()))
+            now = datetime.now()
+            audio_data = audio.get_raw_data()
+            printLog(f"[Recorder Debug] Audio callback triggered at {now.strftime('%H:%M:%S.%f')[:-3]}, size: {len(audio_data)} bytes")
+            audio_queue.put((audio_data, now))
 
         def energyRecordCallback(energy):
             energy_queue.put(energy)
