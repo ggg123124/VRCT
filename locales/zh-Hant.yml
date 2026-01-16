@@ -76,13 +76,13 @@ config_page:
     common:
         version: "版本 {{version}}"
         model_download_button_label: "下載"
-        correct_auth_key_required:
-        open_auth_key_webpage:
+        correct_auth_key_required: "需要正確的授權金鑰"
+        open_auth_key_webpage: "打開授權金鑰管理頁面"
         connection_check:
-            button_label:
-            checking:
-            connected:
-            disconnected:
+            button_label: "連線檢查"
+            checking: "檢查中..."
+            connected: "已連線"
+            disconnected: "未連線"
         compute_device:
             desc: "各處理類型的精度和速度會因機器規格不同而有所差異，可能與顯示順序不同，請作為大致參考。"
             label_device: "處理裝置"
@@ -163,41 +163,41 @@ config_page:
             auth_key_success: "授權金鑰更新完成。"
 
         plamo_auth_key:
-            label:
+            label: "Plamo 授權金鑰"
         select_plamo_model:
-            label:
+            label: "選擇 Plamo 模型"
 
         gemini_auth_key:
-            label:
+            label: "Gemini 授權金鑰"
         select_gemini_model:
-            label:
+            label: "選擇 Gemini 模型"
 
         openai_auth_key:
-            label:
+            label: "OpenAI 授權金鑰"
         select_openai_model:
-            label:
+            label: "選擇 OpenAI 模型"
 
         groq_auth_key:
-            label:
+            label: "Groq 授權金鑰"
         select_groq_model:
-            label:
+            label: "選擇 Groq 模型"
 
         openrouter_auth_key:
-            label:
+            label: "OpenRouter 授權金鑰"
         select_openrouter_model:
-            label:
+            label: "選擇 OpenRouter 模型"
 
         lmstudio_connection_check:
-            label:
+            label: "檢查 LM Studio 連線"
         select_lmstudio_model:
-            label:
-            connection_required:
+            label: "選擇 LMStudio 模型"
+            connection_required: "需要連線至 LMStudio"
 
         ollama_connection_check:
-            label:
+            label: "檢查 Ollama 連線"
         select_ollama_model:
-            label:
-            connection_required:
+            label: "選擇 Ollama 模型"
+            connection_required: "需要連線至 Ollama"
 
     transcription:
         section_label_mic: "麥克風"
@@ -265,8 +265,8 @@ config_page:
         overlay_show_only_translated_messages:
             label: "僅顯示翻譯後的訊息"
         voice_typing_mode:
-            label:
-            desc:
+            label: "語音輸入模式"
+            desc: "會自動將轉錄後的文字貼上到目前作用中的輸入欄位。\n*使用 Windows 標準剪貼簿功能。"
 
     others:
         section_label_sounds: "音效"
@@ -318,9 +318,9 @@ config_page:
         convert_message_to_hiragana:
             label: "顯示平假名"
         telemetry:
-            label:
-            desc:
-            aptabase_privacy_policy_label:
+            label: "協助我們改進產品"
+            desc: "會傳送匿名的使用情況，讓開發者一邊想著『大家都有在用呢～』一邊改進功能。\n*不會傳送任何個人資訊或對話內容。"
+            aptabase_privacy_policy_label: "Aptabase 隱私權政策"
 
     hotkeys:
         toggle_vrct_visibility:
