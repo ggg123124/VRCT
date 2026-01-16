@@ -23,6 +23,7 @@ from models.osc.osc import OSCHandler
 from models.transcription.transcription_recorder import SelectedMicEnergyAndAudioRecorder, SelectedSpeakerEnergyAndAudioRecorder
 from models.transcription.transcription_recorder import SelectedMicEnergyRecorder, SelectedSpeakerEnergyRecorder
 from models.transcription.transcription_transcriber import AudioTranscriber
+from models.transcription.transcription_gummy import GummyRealtimeTranscriber, checkGummyAvailable, validateGummyApiKey
 from models.translation.translation_languages import translation_lang
 from models.transcription.transcription_languages import transcription_lang
 from models.translation.translation_utils import checkCTranslate2Weight, downloadCTranslate2Weight, downloadCTranslate2Tokenizer, backwardCompatibleRenameWeightsDir
@@ -292,6 +293,25 @@ class Model:
     def updateTranslatorOpenRouterClient(self) -> None:
         self.ensure_initialized()
         self.translator.updateOpenRouterClient()
+
+    def authenticationGummyAuthKey(self, auth_key: str) -> bool:
+        """Validate Gummy API key.
+
+        Args:
+            auth_key: Aliyun API key for Gummy service
+
+        Returns:
+            True if key is valid, False otherwise
+        """
+        return validateGummyApiKey(auth_key)
+
+    def checkGummyAvailable(self) -> bool:
+        """Check if Gummy SDK (dashscope) is available.
+
+        Returns:
+            True if dashscope is installed, False otherwise
+        """
+        return checkGummyAvailable()
 
     def getTranslatorLMStudioConnected(self) -> bool:
         self.ensure_initialized()
@@ -731,75 +751,181 @@ class Model:
             if record_timeout > phrase_timeout:
                 record_timeout = phrase_timeout
 
-            self.mic_audio_recorder = SelectedMicEnergyAndAudioRecorder(
-                device=mic_device,
-                energy_threshold=config.MIC_THRESHOLD,
-                dynamic_energy_threshold=config.MIC_AUTOMATIC_THRESHOLD,
-                phrase_time_limit=record_timeout,
-            )
-            # self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, mic_energy_queue)
-            self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, None)
-            self.mic_transcriber = AudioTranscriber(
-                speaker=False,
-                source=self.mic_audio_recorder.source,
-                phrase_timeout=phrase_timeout,
-                max_phrases=config.MIC_MAX_PHRASES,
-                transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
-                root=config.PATH_LOCAL,
-                whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
-                device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
-                device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
-                compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
-            )
-            def sendMicTranscript():
-                try:
-                    selected_your_languages = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]
-                    languages = [data["language"] for data in selected_your_languages.values() if data["enable"] is True]
-                    countries = [data["country"] for data in selected_your_languages.values() if data["enable"] is True]
-                    if isinstance(self.mic_transcriber, AudioTranscriber) is True:
-                        res = self.mic_transcriber.transcribeAudioQueue(
-                            self.mic_audio_queue,
-                            languages,
-                            countries,
-                            config.MIC_AVG_LOGPROB,
-                            config.MIC_NO_SPEECH_PROB,
-                            config.MIC_NO_REPEAT_NGRAM_SIZE,
-                            config.MIC_VAD_FILTER,
-                            config.MIC_VAD_PARAMETERS,
-                        )
-                        if res:
-                            result = self.mic_transcriber.getTranscript()
-                            fnc(result)
-                except Exception:
-                    errorLogging()
+            # Check if using Gummy_Realtime engine
+            if config.SELECTED_TRANSCRIPTION_ENGINE == "Gummy_Realtime":
+                self._startMicTranscriptGummy(fnc, mic_device, record_timeout, phrase_timeout)
+            else:
+                self._startMicTranscriptStandard(fnc, mic_device, record_timeout, phrase_timeout)
 
-            def endMicTranscript():
-                while not self.mic_audio_queue.empty():
-                    self.mic_audio_queue.get()
-                # while not self.mic_energy_queue.empty():
-                #     self.mic_energy_queue.get()
-                self.mic_transcriber = None
-                gc.collect()
+    def _startMicTranscriptGummy(self, fnc, mic_device, record_timeout, phrase_timeout):
+        """Start microphone transcription using Gummy Realtime engine."""
+        from models.transcription.transcription_languages import transcription_lang
 
-            # def sendMicEnergy():
-            #     if mic_energy_queue.empty() is False:
-            #         energy = mic_energy_queue.get()
-            #         # print("mic energy:", energy)
-            #         try:
-            #             fnc(energy)
-            #         except Exception:
-            #             pass
-            #     sleep(0.01)
+        # Get language settings
+        selected_your_languages = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]
+        selected_target_languages = config.SELECTED_TARGET_LANGUAGES[config.SELECTED_TAB_NO]
 
-            self.mic_print_transcript = threadFnc(sendMicTranscript, end_fnc=endMicTranscript)
-            self.mic_print_transcript.daemon = True
-            self.mic_print_transcript.start()
+        # Get source language code for Gummy
+        source_lang = "zh"  # default
+        for data in selected_your_languages.values():
+            if data["enable"]:
+                lang_name = data["language"]
+                country_name = data["country"]
+                if lang_name in transcription_lang and country_name in transcription_lang[lang_name]:
+                    gummy_code = transcription_lang[lang_name][country_name].get("Gummy_Realtime")
+                    if gummy_code:
+                        source_lang = gummy_code
+                        break
 
-            # self.mic_get_energy = threadFnc(sendMicEnergy)
-            # self.mic_get_energy.daemon = True
-            # self.mic_get_energy.start()
+        # Get target language codes for Gummy
+        target_langs = []
+        for data in selected_target_languages.values():
+            if data["enable"]:
+                lang_name = data["language"]
+                country_name = data["country"]
+                if lang_name in transcription_lang and country_name in transcription_lang[lang_name]:
+                    gummy_code = transcription_lang[lang_name][country_name].get("Gummy_Realtime")
+                    if gummy_code and gummy_code not in target_langs:
+                        target_langs.append(gummy_code)
+        if not target_langs:
+            target_langs = ["en"]  # default
 
-            self.changeMicTranscriptStatus()
+        # Initialize Gummy transcriber
+        self.gummy_transcriber = GummyRealtimeTranscriber(
+            api_key=config.AUTH_KEYS.get("Gummy_API"),
+            source_language=source_lang,
+            target_languages=target_langs,
+            sample_rate=16000,
+        )
+
+        # Start Gummy connection
+        if not self.gummy_transcriber.start():
+            fnc({"text": False, "language": None})
+            return
+
+        # Setup audio recorder
+        self.mic_audio_recorder = SelectedMicEnergyAndAudioRecorder(
+            device=mic_device,
+            energy_threshold=config.MIC_THRESHOLD,
+            dynamic_energy_threshold=config.MIC_AUTOMATIC_THRESHOLD,
+            phrase_time_limit=record_timeout,
+        )
+        self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, None)
+
+        def sendMicTranscriptGummy():
+            try:
+                # Send audio to Gummy
+                if not self.mic_audio_queue.empty():
+                    audio_data, _ = self.mic_audio_queue.get()
+                    if self.gummy_transcriber and self.gummy_transcriber.is_running():
+                        self.gummy_transcriber.send_audio_frame(audio_data)
+
+                # Get results from Gummy
+                if self.gummy_transcriber:
+                    result = self.gummy_transcriber.get_result(timeout=0.05)
+                    if result and not result.get("error"):
+                        # Format result to match existing structure
+                        # For Gummy, we return translated text directly
+                        formatted_result = {
+                            "text": result.get("translated_text", "") or result.get("source_text", ""),
+                            "confidence": result.get("confidence", 1.0),
+                            "language": result.get("source_language"),
+                            "source_text": result.get("source_text", ""),
+                            "translated_text": result.get("translated_text", ""),
+                            "is_gummy": True,
+                        }
+                        if formatted_result["text"]:
+                            fnc(formatted_result)
+                else:
+                    sleep(0.01)
+            except Exception:
+                errorLogging()
+
+        def endMicTranscriptGummy():
+            while not self.mic_audio_queue.empty():
+                self.mic_audio_queue.get()
+            if self.gummy_transcriber:
+                self.gummy_transcriber.stop()
+                self.gummy_transcriber = None
+            gc.collect()
+
+        self.mic_print_transcript = threadFnc(sendMicTranscriptGummy, end_fnc=endMicTranscriptGummy)
+        self.mic_print_transcript.daemon = True
+        self.mic_print_transcript.start()
+
+        self.changeMicTranscriptStatus()
+
+    def _startMicTranscriptStandard(self, fnc, mic_device, record_timeout, phrase_timeout):
+        """Start microphone transcription using standard engines (Google/Whisper)."""
+        self.mic_audio_recorder = SelectedMicEnergyAndAudioRecorder(
+            device=mic_device,
+            energy_threshold=config.MIC_THRESHOLD,
+            dynamic_energy_threshold=config.MIC_AUTOMATIC_THRESHOLD,
+            phrase_time_limit=record_timeout,
+        )
+        # self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, mic_energy_queue)
+        self.mic_audio_recorder.recordIntoQueue(self.mic_audio_queue, None)
+        self.mic_transcriber = AudioTranscriber(
+            speaker=False,
+            source=self.mic_audio_recorder.source,
+            phrase_timeout=phrase_timeout,
+            max_phrases=config.MIC_MAX_PHRASES,
+            transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
+            root=config.PATH_LOCAL,
+            whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
+            device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
+            device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
+            compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
+        )
+        def sendMicTranscript():
+            try:
+                selected_your_languages = config.SELECTED_YOUR_LANGUAGES[config.SELECTED_TAB_NO]
+                languages = [data["language"] for data in selected_your_languages.values() if data["enable"] is True]
+                countries = [data["country"] for data in selected_your_languages.values() if data["enable"] is True]
+                if isinstance(self.mic_transcriber, AudioTranscriber) is True:
+                    res = self.mic_transcriber.transcribeAudioQueue(
+                        self.mic_audio_queue,
+                        languages,
+                        countries,
+                        config.MIC_AVG_LOGPROB,
+                        config.MIC_NO_SPEECH_PROB,
+                        config.MIC_NO_REPEAT_NGRAM_SIZE,
+                        config.MIC_VAD_FILTER,
+                        config.MIC_VAD_PARAMETERS,
+                    )
+                    if res:
+                        result = self.mic_transcriber.getTranscript()
+                        fnc(result)
+            except Exception:
+                errorLogging()
+
+        def endMicTranscript():
+            while not self.mic_audio_queue.empty():
+                self.mic_audio_queue.get()
+            # while not self.mic_energy_queue.empty():
+            #     self.mic_energy_queue.get()
+            self.mic_transcriber = None
+            gc.collect()
+
+        # def sendMicEnergy():
+        #     if mic_energy_queue.empty() is False:
+        #         energy = mic_energy_queue.get()
+        #         # print("mic energy:", energy)
+        #         try:
+        #             fnc(energy)
+        #         except Exception:
+        #             pass
+        #     sleep(0.01)
+
+        self.mic_print_transcript = threadFnc(sendMicTranscript, end_fnc=endMicTranscript)
+        self.mic_print_transcript.daemon = True
+        self.mic_print_transcript.start()
+
+        # self.mic_get_energy = threadFnc(sendMicEnergy)
+        # self.mic_get_energy.daemon = True
+        # self.mic_get_energy.start()
+
+        self.changeMicTranscriptStatus()
 
     def resumeMicTranscript(self):
         self.ensure_initialized()
@@ -860,6 +986,10 @@ class Model:
             self.mic_audio_recorder.resume()
             self.mic_audio_recorder.stop()
             self.mic_audio_recorder = None
+        # Stop Gummy transcriber if running
+        if hasattr(self, 'gummy_transcriber') and self.gummy_transcriber is not None:
+            self.gummy_transcriber.stop()
+            self.gummy_transcriber = None
         # if isinstance(self.mic_get_energy, threadFnc):
         #     self.mic_get_energy.stop()
         #     self.mic_get_energy = None

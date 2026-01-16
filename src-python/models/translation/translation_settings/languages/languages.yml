@@ -777,3 +777,28 @@ Groq_API:
 OpenRouter_API:
   source: *openai_langs
   target: *openai_langs
+
+Gummy_API:
+  source: &gummy_langs
+    Chinese Simplified: zh
+    Cantonese: yue
+    English: en
+    Japanese: ja
+    Korean: ko
+    French: fr
+    German: de
+    Spanish: es
+    Russian: ru
+    Italian: it
+    Portuguese: pt
+    Arabic: ar
+    Turkish: tr
+    Dutch: nl
+    Vietnamese: vi
+    Thai: th
+    Indonesian: id
+    Danish: da
+    Urdu: ur
+    Malay: ms
+    Hindi: hi
+  target: *gummy_langs

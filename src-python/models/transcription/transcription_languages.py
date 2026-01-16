@@ -26,74 +26,92 @@ transcription_lang = {
         "Algeria":{
             "Google": "ar-DZ",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Bahrain":{
             "Google": "ar-BH",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Egypt":{
             "Google": "ar-EG",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Israel":{
             "Google": "ar-IL",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Iraq":{
             "Google": "ar-IQ",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Jordan":{
             "Google": "ar-JO",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Kuwait":{
             "Google": "ar-KW",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Lebanon":{
             "Google": "ar-LB",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Mauritania":{
             "Google": "ar-MR",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Morocco":{
             "Google": "ar-MA",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Oman":{
             "Google": "ar-OM",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Qatar":{
             "Google": "ar-QA",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Saudi Arabia":{
             "Google": "ar-SA",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Palestine":{
             "Google": "ar-PS",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Syria":{
             "Google": "ar-SY",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Tunisia":{
             "Google": "ar-TN",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "United Arab Emirates":{
             "Google": "ar-AE",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
         "Yemen":{
             "Google": "ar-YE",
             "Whisper": "ar",
+            "Gummy_Realtime": "ar",
         },
     },
     "Armenian": {
@@ -152,20 +170,24 @@ transcription_lang = {
         "China":{
             "Google": "cmn-Hans-CN",
             "Whisper": "zh",
+            "Gummy_Realtime": "zh",
         },
         "Hong Kong":{
             "Google": "cmn-Hans-HK",
             "Whisper": "zh",
+            "Gummy_Realtime": "zh",
         },
     },
     "Chinese Traditional":{
         "Taiwan":{
             "Google": "cmn-Hant-TW",
             "Whisper": "zh",
+            "Gummy_Realtime": "zh",
         },
         "Hong Kong":{
             "Google": "yue-Hant-HK",
             "Whisper": "yue",
+            "Gummy_Realtime": "yue",
         },
     },
     "Croatian":{
@@ -184,78 +206,96 @@ transcription_lang = {
         "Denmark":{
             "Google": "da-DK",
             "Whisper": "da",
+            "Gummy_Realtime": "da",
         },
     },
     "Dutch":{
         "Belgium":{
             "Google": "nl-BE",
             "Whisper": "nl",
+            "Gummy_Realtime": "nl",
         },
         "Netherlands":{
             "Google": "nl-NL",
             "Whisper": "nl",
+            "Gummy_Realtime": "nl",
         },
     },
     "English": {
         "Australia":{
             "Google": "en-AU",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Canada":{
             "Google": "en-CA",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Ghana":{
             "Google": "en-GH",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Hong Kong":{
             "Google": "en-HK",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "India":{
             "Google": "en-IN",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Ireland":{
             "Google": "en-IE",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Kenya":{
             "Google": "en-KE",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "New Zealand":{
             "Google": "en-NZ",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Nigeria":{
             "Google": "en-NG",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Philippines":{
             "Google": "en-PH",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Singapore":{
             "Google": "en-SG",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "South Africa":{
             "Google": "en-ZA",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "Tanzania":{
             "Google": "en-TZ",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "United Kingdom":{
             "Google": "en-GB",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
         "United States":{
             "Google": "en-US",
             "Whisper": "en",
+            "Gummy_Realtime": "en",
         },
     },
     "Estonian":{
@@ -280,18 +320,22 @@ transcription_lang = {
         "Belgium":{
             "Google": "fr-BE",
             "Whisper": "fr",
+            "Gummy_Realtime": "fr",
         },
         "Canada":{
             "Google": "fr-CA",
             "Whisper": "fr",
+            "Gummy_Realtime": "fr",
         },
         "France":{
             "Google": "fr-FR",
             "Whisper": "fr",
+            "Gummy_Realtime": "fr",
         },
         "Switzerland":{
             "Google": "fr-CH",
             "Whisper": "fr",
+            "Gummy_Realtime": "fr",
         },
     },
     "Galician":{
@@ -310,14 +354,17 @@ transcription_lang = {
         "Austria":{
             "Google": "de-AT",
             "Whisper": "de",
+            "Gummy_Realtime": "de",
         },
         "Germany":{
             "Google": "de-DE",
             "Whisper": "de",
+            "Gummy_Realtime": "de",
         },
         "Switzerland":{
             "Google": "de-CH",
             "Whisper": "de",
+            "Gummy_Realtime": "de",
         },
     },
     "Greek":{
@@ -342,6 +389,7 @@ transcription_lang = {
         "India":{
             "Google": "hi-IN",
             "Whisper": "hi",
+            "Gummy_Realtime": "hi",
         },
     },
     "Hungarian":{
@@ -360,22 +408,26 @@ transcription_lang = {
         "Indonesia":{
             "Google": "id-ID",
             "Whisper": "id",
+            "Gummy_Realtime": "id",
         },
     },
     "Italian":{
         "Italy":{
             "Google": "it-IT",
             "Whisper": "it",
+            "Gummy_Realtime": "it",
         },
         "Switzerland":{
             "Google": "it-CH",
             "Whisper": "it",
+            "Gummy_Realtime": "it",
         },
     },
     "Japanese":{
         "Japan":{
             "Google": "ja-JP",
             "Whisper": "ja",
+            "Gummy_Realtime": "ja",
         },
     },
     # "Javanese":{
@@ -410,6 +462,7 @@ transcription_lang = {
         "South Korea":{
             "Google": "ko-KR",
             "Whisper": "ko",
+            "Gummy_Realtime": "ko",
         },
     },
     "Lao":{
@@ -440,6 +493,7 @@ transcription_lang = {
         "Malaysia":{
             "Google": "ms-MY",
             "Whisper": "ms",
+            "Gummy_Realtime": "ms",
         },
     },
     "Malayalam":{
@@ -482,10 +536,12 @@ transcription_lang = {
         "Brazil":{
             "Google": "pt-BR",
             "Whisper": "pt",
+            "Gummy_Realtime": "pt",
         },
         "Portugal":{
             "Google": "pt-PT",
             "Whisper": "pt",
+            "Gummy_Realtime": "pt",
         },
     },
     # "Punjabi":{
@@ -503,6 +559,7 @@ transcription_lang = {
         "Russia":{
             "Google": "ru-RU",
             "Whisper": "ru",
+            "Gummy_Realtime": "ru",
         },
     },
     "Serbian":{
@@ -538,82 +595,102 @@ transcription_lang = {
         "Argentina":{
             "Google": "es-AR",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Bolivia":{
             "Google": "es-BO",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Chile":{
             "Google": "es-CL",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Colombia":{
             "Google": "es-CO",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Costa Rica":{
             "Google": "es-CR",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Dominican Republic":{
             "Google": "es-DO",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Ecuador":{
             "Google": "es-EC",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "El Salvador":{
             "Google": "es-SV",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Guatemala":{
             "Google": "es-GT",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Honduras":{
             "Google": "es-HN",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Mexico":{
             "Google": "es-MX",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Nicaragua":{
             "Google": "es-NI",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Panama":{
             "Google": "es-PA",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Paraguay":{
             "Google": "es-PY",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Peru":{
             "Google": "es-PE",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Puerto Rico":{
             "Google": "es-PR",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Spain":{
             "Google": "es-ES",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "United States":{
             "Google": "es-US",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Uruguay":{
             "Google": "es-UY",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
         "Venezuela":{
             "Google": "es-VE",
             "Whisper": "es",
+            "Gummy_Realtime": "es",
         },
     },
     "Sundanese":{
@@ -671,6 +748,7 @@ transcription_lang = {
         "Thailand":{
             "Google": "th-TH",
             "Whisper": "th",
+            "Gummy_Realtime": "th",
         },
     },
     # "Tsonga":{
@@ -687,6 +765,7 @@ transcription_lang = {
         "Turkey":{
             "Google": "tr-TR",
             "Whisper": "tr",
+            "Gummy_Realtime": "tr",
         },
     },
     "Ukrainian":{
@@ -699,10 +778,12 @@ transcription_lang = {
         "India":{
             "Google": "ur-IN",
             "Whisper": "ur",
+            "Gummy_Realtime": "ur",
         },
         "Pakistan":{
             "Google": "ur-PK",
             "Whisper": "ur",
+            "Gummy_Realtime": "ur",
         },
     },
     "Uzbek":{
@@ -720,6 +801,7 @@ transcription_lang = {
         "Vietnam":{
             "Google": "vi-VN",
             "Whisper": "vi",
+            "Gummy_Realtime": "vi",
         },
     },
     # "Xhosa":{

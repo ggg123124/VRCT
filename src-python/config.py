@@ -787,9 +787,12 @@ class Config:
         translation_lang = loadTranslationLanguages(self.PATH_LOCAL)
         self._SELECTABLE_TRANSLATION_ENGINE_LIST = getattr(translation_lang, 'keys', lambda: [])()
         try:
-            # transcription_lang is nested dict; attempt to extract keys defensively
-            first_key = next(iter(transcription_lang))
-            self._SELECTABLE_TRANSCRIPTION_ENGINE_LIST = list(transcription_lang[first_key].values())[0].keys()
+            # transcription_lang is nested dict; collect all unique engine keys from all languages
+            all_engines = set()
+            for lang_data in transcription_lang.values():
+                for country_data in lang_data.values():
+                    all_engines.update(country_data.keys())
+            self._SELECTABLE_TRANSCRIPTION_ENGINE_LIST = list(all_engines)
         except Exception:
             self._SELECTABLE_TRANSCRIPTION_ENGINE_LIST = []
         self._SELECTABLE_UI_LANGUAGE_LIST = ["en", "ja", "ko", "zh-Hant", "zh-Hans"]
@@ -947,6 +950,7 @@ class Config:
             "OpenAI_API": None,
             "Groq_API": None,
             "OpenRouter_API": None,
+            "Gummy_API": None,
         }
         self._USE_EXCLUDE_WORDS = True
         self._SELECTED_TRANSLATION_COMPUTE_DEVICE = copy.deepcopy(self.SELECTABLE_COMPUTE_DEVICE_LIST[0])

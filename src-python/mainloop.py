@@ -230,6 +230,11 @@ mapping = {
     "/set/data/openrouter_auth_key": {"status": True, "variable":controller.setOpenRouterAuthKey},
     "/delete/data/openrouter_auth_key": {"status": True, "variable":controller.delOpenRouterAuthKey},
 
+    # Gummy API (Aliyun Realtime Speech Translation)
+    "/get/data/gummy_auth_key": {"status": True, "variable":controller.getGummyAuthKey},
+    "/set/data/gummy_auth_key": {"status": True, "variable":controller.setGummyAuthKey},
+    "/delete/data/gummy_auth_key": {"status": True, "variable":controller.delGummyAuthKey},
+
     "/get/data/connected_lmstudio": {"status": True, "variable":controller.getTranslatorLMStudioConnection},
     "/run/lmstudio_connection": {"status": True, "variable":controller.checkTranslatorLMStudioConnection},
     "/get/data/selectable_lmstudio_model_list": {"status": True, "variable":controller.getTranslatorLStudioModelList},

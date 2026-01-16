@@ -2064,6 +2064,42 @@ class Controller:
             )
         return response
 
+    # Gummy API methods
+    @staticmethod
+    def getGummyAuthKey(*args, **kwargs) -> dict:
+        return {"status":200, "result":config.AUTH_KEYS["Gummy_API"]}
+
+    def setGummyAuthKey(self, data, *args, **kwargs) -> dict:
+        printLog("Set Gummy Auth Key", data)
+        try:
+            data = str(data)
+            if len(data) >= 20:  # Basic length check for Aliyun API key
+                result = model.authenticationGummyAuthKey(auth_key=data)
+                if result is True:
+                    key = data
+                    auth_keys = config.AUTH_KEYS
+                    auth_keys["Gummy_API"] = key
+                    config.AUTH_KEYS = auth_keys
+                    config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS["Gummy_Realtime"] = True
+                    response = {"status":200, "result":config.AUTH_KEYS["Gummy_API"]}
+                else:
+                    response = {"status":400, "result":None, "message":"Gummy API authentication failed"}
+            else:
+                response = {"status":400, "result":None, "message":"Invalid Gummy API key format"}
+        except Exception as e:
+            errorLogging()
+            response = {"status":500, "result":None, "message":str(e)}
+        if response["status"] != 200:
+            self.delGummyAuthKey()
+        return response
+
+    def delGummyAuthKey(self, *args, **kwargs) -> dict:
+        auth_keys = config.AUTH_KEYS
+        auth_keys["Gummy_API"] = None
+        config.AUTH_KEYS = auth_keys
+        config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS["Gummy_Realtime"] = False
+        return {"status":200, "result":config.AUTH_KEYS["Gummy_API"]}
+
     def getTranslatorLMStudioConnection(self, *args, **kwargs) -> dict:
         return {"status":200, "result":model.getTranslatorLMStudioConnected()}
 
