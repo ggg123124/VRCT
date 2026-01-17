@@ -112,7 +112,7 @@ class GummyChatCallback(TranslationRecognizerCallback):
         self._last_original_text = ""  # Cache for last original text
         self._last_translated_text = ""  # Cache for last translation
         self._last_interim_send_time = 0.0  # Timestamp of last interim result sent
-        self._interim_send_interval = 0.5  # Send interim results every 0.5 seconds
+        self._interim_send_interval = 1.0  # Send interim results every 1.0 seconds
     
     def on_open(self) -> None:
         """Called when connection opens."""
@@ -170,7 +170,7 @@ class GummyChatCallback(TranslationRecognizerCallback):
             if not content_changed:
                 return  # Skip sending if nothing changed
             
-            # Rate limit interim results (non-final): only send every 0.5 seconds
+            # Rate limit interim results (non-final): only send every 1.0 seconds
             if not is_final:
                 current_time = time.time()
                 time_since_last_send = current_time - self._last_interim_send_time
@@ -665,7 +665,7 @@ class GummyDirectCallback(TranslationRecognizerCallback):
         self._last_original_text = ""  # Cache for last original text
         self._last_translated_text = ""  # Cache for last translation
         self._last_interim_send_time = 0.0  # Timestamp of last interim result sent
-        self._interim_send_interval = 0.5  # Send interim results every 0.5 seconds
+        self._interim_send_interval = 1.0  # Send interim results every 1.0 seconds
     
     def on_open(self) -> None:
         """Called when connection opens - initialize PyAudio stream."""
@@ -751,7 +751,7 @@ class GummyDirectCallback(TranslationRecognizerCallback):
             if not content_changed:
                 return  # Skip sending if nothing changed
             
-            # Rate limit interim results (non-final): only send every 0.5 seconds
+            # Rate limit interim results (non-final): only send every 1.0 seconds
             if not is_final:
                 current_time = time.time()
                 time_since_last_send = current_time - self._last_interim_send_time
@@ -1178,7 +1178,7 @@ class GummySpeakerDirectCallback(TranslationRecognizerCallback):
         self._last_original_text = ""  # Cache for last original text
         self._last_translated_text = ""  # Cache for last translation
         self._last_interim_send_time = 0.0  # Timestamp of last interim result sent
-        self._interim_send_interval = 2  # Send interim results every 0.5 seconds
+        self._interim_send_interval = 1.0  # Send interim results every 1.0 seconds
     
     def on_open(self) -> None:
         """Called when connection opens - initialize PyAudio stream with native sample rate."""
@@ -1291,7 +1291,7 @@ class GummySpeakerDirectCallback(TranslationRecognizerCallback):
             if not content_changed:
                 return  # Skip sending if nothing changed
             
-            # Rate limit interim results (non-final): only send every 0.5 seconds
+            # Rate limit interim results (non-final): only send every 1.0 seconds
             if not is_final:
                 current_time = time.time()
                 time_since_last_send = current_time - self._last_interim_send_time

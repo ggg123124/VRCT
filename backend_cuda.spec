@@ -1,4 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
+import warnings
+warnings.filterwarnings('ignore')
 
 
 a = Analysis(
@@ -12,9 +14,14 @@ a = Analysis(
         ('.venv_cuda/Lib/site-packages/zeroconf', 'zeroconf/'),
         ('.venv_cuda/Lib/site-packages/openvr', 'openvr/'),
         ('.venv_cuda/Lib/site-packages/faster_whisper', 'faster_whisper/'),
-        ('.venv/Lib/site-packages/hf_xet', 'hf_xet/')
+        ('.venv_cuda/Lib/site-packages/hf_xet', 'hf_xet/')
         ],
-    hiddenimports=['scipy', 'scipy.signal', 'scipy.signal._max_len_seq_inner', 'dashscope', 'dashscope.audio', 'dashscope.audio.asr'],
+    hiddenimports=[
+        'scipy', 'scipy.signal', 'scipy.signal._max_len_seq_inner',
+        'scipy.linalg', 'scipy.linalg.cython_blas', 'scipy.linalg.cython_lapack',
+        'scipy.special', 'scipy.special._ufuncs_cxx', 'scipy.integrate',
+        'dashscope', 'dashscope.audio', 'dashscope.audio.asr'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
